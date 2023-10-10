@@ -45,3 +45,4 @@ C:\Users\carl\source\repos\KTDCrawler\KTDCrawler\obj\Debug\net6.0\refint\KTDCraw
 C:\Users\carl\source\repos\KTDCrawler\KTDCrawler\obj\Debug\net6.0\KTDCrawler.pdb
 C:\Users\carl\source\repos\KTDCrawler\KTDCrawler\obj\Debug\net6.0\KTDCrawler.genruntimeconfig.cache
 C:\Users\carl\source\repos\KTDCrawler\KTDCrawler\obj\Debug\net6.0\ref\KTDCrawler.dll
+C:\Users\carl\source\repos\KTDCrawler\KTDCrawler\bin\Debug\net6.0\Microsoft.Extensions.Http.dll

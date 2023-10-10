@@ -60,7 +60,7 @@ namespace KTDCrawler
                             if (!File.Exists(filePath) || IsFileChanged(absoluteUrl, filePath))
                             {
                                 // Archivordner mit aktuellem Zeitstempel als Namen.
-                                string archiveFolderName = DateTime.Now.ToString("yyyyMMddHHmmss");
+                                string archiveFolderName = DateTime.Now.ToString("yyyyMMdd");
                                 string archiveFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "Archives", archiveFolderName);
 
                                 // Erstellen, wenn nicht vorhanden.
@@ -71,7 +71,7 @@ namespace KTDCrawler
                                 {
                                     string archiveFilePath = Path.Combine(archiveFolderPath, fileName);
                                     File.Move(filePath, archiveFilePath);
-                                    _logger.LogInformation($"File {fileName} archived to {archiveFolderPath}.");
+                                    _logger.LogInformation($"Datei {fileName} wurde archiviert in {archiveFolderPath}.");
                                 }
 
                                 // Herunterladen der Dateien.
@@ -81,7 +81,7 @@ namespace KTDCrawler
                                 using (var fileStream = File.Create(filePath))
                                 {
                                     await fileResponse.Content.CopyToAsync(fileStream);
-                                    _logger.LogInformation($"File {fileName} downloaded and saved.");
+                                    _logger.LogInformation($"Datei {fileName} wurde heruntergeladen.");
                                 }
 
                                 // Informationen aktualisieren.
