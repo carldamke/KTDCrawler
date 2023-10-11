@@ -1,3 +1,13 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using HtmlAgilityPack;
 
 namespace KTDCrawler
@@ -5,7 +15,7 @@ namespace KTDCrawler
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
-        private Dictionary<string, (long Size, DateTime LastModified)> downloadedFilesInfo = new Dictionary<string, (long, DateTime)>();
+        private Dictionary<string, (long Size, DateTime LastModified, string Checksum)> downloadedFilesInfo = new Dictionary<string, (long, DateTime, string)>();
 
         public Worker(ILogger<Worker> logger)
         {
@@ -36,11 +46,13 @@ namespace KTDCrawler
                         var htmlDocument = new HtmlDocument();
                         htmlDocument.LoadHtml(htmlContent);
 
-                        // Alle Links mit Endung .ke0 und .ke2
+                        // Gesuchte Dateiendungen der Kostenträgerdateien
+                        var fileExtensions = new List<string> { ".ke0", ".ke1", ".ke2", ".ke3", ".ke4", ".ke5", ".ke6", ".ke7", ".ke8", ".ke9" };
+
+                        // Alle Links mit den relevanten Dateiendungen erfassen
                         var ke0Links = htmlDocument.DocumentNode
                             .Descendants("a")
-                            .Where(a => a.Attributes["href"] != null &&
-                                        (a.Attributes["href"].Value.EndsWith(".ke0") || a.Attributes["href"].Value.EndsWith(".ke2")))
+                            .Where(a => a.Attributes["href"] != null && fileExtensions.Any(ext => a.Attributes["href"].Value.EndsWith(ext)))
                             .Select(a => a.Attributes["href"].Value)
                             .ToList();
 
@@ -56,8 +68,8 @@ namespace KTDCrawler
                             var fileName = Path.GetFileName(link);
                             var filePath = Path.Combine("DownloadedFiles", fileName);
 
-                            // Ist Datei bereits heruntergeladen?
-                            if (!File.Exists(filePath) || IsFileChanged(absoluteUrl, filePath))
+                            // Ist (neueste) Datei bereits heruntergeladen?
+                            if (!File.Exists(filePath) || IsFileChanged(filePath))
                             {
                                 // Archivordner mit aktuellem Zeitstempel als Namen.
                                 string archiveFolderName = DateTime.Now.ToString("yyyyMMdd");
@@ -85,8 +97,9 @@ namespace KTDCrawler
                                 }
 
                                 // Informationen aktualisieren.
-                                downloadedFilesInfo[fileName] = (new FileInfo(filePath).Length, DateTime.Now);
+                                downloadedFilesInfo[fileName] = (new FileInfo(filePath).Length, DateTime.Now, ComputeFileHash(filePath));
                             }
+                        
                             else
                             {
                                 _logger.LogInformation($"Datei {fileName} ist noch aktuell, der Download wird übersprungen.");
@@ -103,25 +116,31 @@ namespace KTDCrawler
             }
         }
 
-        private bool IsFileChanged(string url, string localPath)
+        private bool IsFileChanged(string localPath)
         {
             if (downloadedFilesInfo.TryGetValue(Path.GetFileName(localPath), out var fileInfo))
             {
-                // Auf Dateiänderung prüfen.
-                using (var client = new HttpClient())
-                {
-                    var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
-                    var response = client.SendAsync(headRequest).Result;
+                string currentHash = ComputeFileHash(localPath);
 
-                    if (response.Headers.TryGetValues("Last-Modified", out var lastModifiedValues) &&
-                        DateTime.TryParse(lastModifiedValues.First(), out var remoteLastModified))
-                    {
-                        return remoteLastModified > fileInfo.LastModified || new FileInfo(localPath).Length != fileInfo.Size;
-                    }
+                if (currentHash != fileInfo.Checksum)
+                {
+                    return true; // Andere Checksum -> Neue Datei
                 }
             }
 
-            return true; // Aktuelle Online-Dateien sind nicht in den bekannten Daten enthalten, neuer Download resultiert.
+            return false; // Gleiche Checksum oder Datei nicht im Dictionary
+        }
+
+        private string ComputeFileHash(string filePath)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                using (var stream = File.OpenRead(filePath))
+                {
+                    byte[] hash = sha256.ComputeHash(stream);
+                    return BitConverter.ToString(hash).Replace("-", "").ToLower();
+                }
+            }
         }
     }
 }
